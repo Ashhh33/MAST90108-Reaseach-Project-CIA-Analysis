@@ -1,0 +1,224 @@
+review comments
+
+[ framework ]
+
+* program structure: top function: Run()
+  only one runninig function
+  disable all running function calls
+
+* directories
+  DIR_SCRIPTS / DIR_PROJECT / DIR_DATASET / DIR_ANALYSIS
+  FILE_DATASET
+
+* always working under DIR_ANALYSIS
+
+* must have result output files: tables, plots etc.
+
+* transfer data by result of function calls, not by output file
+  often by list
+
+* use Assert a lot
+
+Assert <- function(message, condition) {
+
+    if (!condition) {
+
+        message <- glue('Assert failed: {message}')
+        stop(message)
+    }
+}
+
+
+* add AutoBackupScripts
+  automatically backup scripts daily
+  c:/bak/2022-04-08
+
+* optional: add BackupResults
+  backup scripts & results & dataset
+
+* naming is important
+
+* filenames: use numbers
+
+
+
+[ data analysis comments ]
+
+* replace_na_by_mean_mode
+  better use imputation
+
+library('recipes')
+
+KnnImpute <- function(tbl) {
+
+    row_count <- nrow(tbl)
+    col_count <- ncol(tbl)
+
+    column_y = 'temp_imputation_column_y'
+    tbl[[column_y]] <- sample(c(0, 1), size = nrow(tbl), replace = TRUE)
+
+    rec_obj <- recipe(as.formula(glue('{column_y} ~ .')), data = tbl)
+
+    imputed <- rec_obj %>% step_impute_knn(all_predictors(), neighbors = 10)
+
+    trained_rec <- prep(imputed, training = tbl)
+    tbl <- bake(trained_rec, new_data = tbl)
+
+    tbl <- tbl[, setdiff(colnames(tbl), column_y)]
+
+    return(tbl)
+}
+
+
+* outcome columns processing
+  better to process case by case !!!!
+
+
+
+[ coding style ]
+
+------------------------------------ main.R
+
+* line 5: file name: feature-cleaning.R: better to use feature_cleaning.R
+  '-' rarely could be used in filename, only when two words should be closely connected
+  never use '-' in variable names
+
+* line 8: features <- read_csv("./preprocessed-data/feature-data_cleaned.csv")
+  use ' instead of "
+
+* line 11: complete_df <- merge(x=features, y=outcome_surv, by="ID")
+  use space on both side of = or other operators
+
+* line 12: complete_df[, -c(1)]
+  should not rely on position of 'ID'
+
+* line 13: factor_df <- data.frame(complete_df)
+  name df_factor better than factor_df
+
+* line 18: anova(model0)
+  mode10 name is not good for 10
+
+* line 23: cycles_numeric_df[, c(2:4)] = lapply(cycles_numeric_df[, c(2:4)], factor)
+  always us <- instead of =
+
+
+------------------------------------ preprocess_split.df.R
+
+* line 4: library(xlsx)
+  better to use package openxlsx
+  suggestion: all library lines could be put in one place, sorted by name
+
+* line 37: OUTCOMES_1: not needed
+
+* line 47: OUTCOMES_2: not needed, and error
+
+* line 52: getPreprocessedData <- function(file_path)
+  fuction name better to use GetPreprocessedData
+
+* line 53: SAVE_PATH_FEATURE = "./preprocessed-data/feature-data.csv"
+  do not define all uppercase variable name inside function, that's for global constant variables
+
+
+
+------------------------------------ feature-cleaning.R
+
+* line 3: mode <- function(x) {
+  function name, better to use GetMode
+
+* line 8
+replace_na_by_mean_mode <- function(x) {
+  if(is.factor(x)) {
+    replace(x, is.na(x), mode(na.omit(x)))
+  }
+  else if(is.numeric(x)) {
+    replace(x, is.na(x), mean(x, na.rm=TRUE))
+  }
+}
+
+better coding like following
+
+ReplaceNaByMeanMode <- function(x) {
+
+    if (is.factor(x)) {
+  
+        return(replace(x, is.na(x), mode(na.omit(x))))        
+    }
+    
+    if (is.numeric(x)) {
+    
+        return(replace(x, is.na(x), mean(x, na.rm = TRUE)))
+    }
+    
+    Assert('Error with ReplaceNaByMeanMode: x is not factor or numeric', FALSE)
+}
+
+tabsize: 4
+always use return
+space usage & empty line usage
+two empty lines between function defnitions
+
+
+* line 24: predictors = replace_na(predictors, list(rep(99, 5)))
+  not sure what it is for?
+
+* line 32: predictors_naRemoved = data.frame(sapply(predictors, replace_na_by_mean_mode))
+  better to use name predictors_na_removed
+
+
+------------------------------------ outcome-cleaning.R
+
+* line 4: removeOutcomeNaRecords <- function(data) {
+  better use name GetOutcomeNaRecordIndex
+
+* line 15:
+
+replaceNaWithLast <- function(vec){
+  if (is.na(vec[1])) 
+    vec[1] = na.omit(vec)[1]
+  for (i in 2:length(vec)) {
+    if (is.na(vec[i])) 
+      vec[i] = vec[i - 1]
+    }
+  return(vec)
+}
+
+better to change to
+
+ReplaceNaWithLast <- function(vec){
+
+    if (is.na(vec[1])) {
+  
+        vec[1] <- na.omit(vec)[1]
+    }
+    
+    for (i in 2:length(vec)) {
+    
+        if (is.na(vec[i])) {
+        
+            vec[i] <- vec[i - 1]
+        }
+    }
+    
+    return(vec)
+}
+
+
+* line 28: if (vec[i] != vec[i - 1] & vec[i - 1] == vec[i + 1]) {
+
+  be careful with &, better to use &&
+  
+  vec <- c(2, 3, 12, 15)  
+  all(5 < vec & vec < 10)
+
+
+* line 40: 
+    for (j in 1:ncol(df)) {
+      if (df[i, j] == 0) {
+        survive[i] = 1
+        time[i] = time_vec[j]
+        break
+      } else {
+        time[i] = time_vec[7]
+      }
+    }
+  here outcome processing is too simple
